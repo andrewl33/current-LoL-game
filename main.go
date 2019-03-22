@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+// Summoner info
 type Summoner struct {
 	ID            string `json:"id"`
 	AccountID     string `json:"accountId"`
@@ -20,6 +22,14 @@ type Summoner struct {
 	ProfileIconID string `json:"profileIconId"`
 	RevisionDate  string `json:"revisionDate"`
 	SummonerLevel string `json:"summonerLevel"`
+}
+
+// SummonerFail body from riot api
+type SummonerFail struct {
+	Status struct {
+		Message    string `json:"message"`
+		StatusCode int16  `json:"status_code"`
+	}
 }
 
 // https://na1.api.riotgames.com
@@ -73,25 +83,46 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// get summoner ID
-		resp, err := http.Get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + arguments[1] + "?api_key=" + RiotAPIKey)
-
+		// get data
+		encryptedAccountID, err := getUserID(arguments[1])
 		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Problem accessing Riot Games API.")
-			fmt.Println("error getting name,", err)
+			fmt.Println(err)
 			return
 		}
-		defer resp.Body.Close()
 
-		summoner := Summoner{}
-
-		json.NewDecoder(resp.Body).Decode(&summoner)
-
-		fmt.Println(summoner.ID)
+		fmt.Println(encryptedAccountID)
 	}
 
 	// If the message is "pong" reply with "Ping!"
 	if m.Content == "pong" {
 		s.ChannelMessageSend(m.ChannelID, "Ping!")
 	}
+}
+
+func getUserID(accountName string) (string, error) {
+	resp, err := http.Get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + accountName + "?api_key=" + RiotAPIKey)
+
+	if err != nil {
+		return "", errors.New("could not connect to summoner api")
+	}
+	defer resp.Body.Close()
+
+	// get summoner ID
+	result := struct {
+		Summoner
+		SummonerFail
+	}{}
+
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	switch {
+	case result.Status.Message != "":
+		fmt.Println("summoner does not exist")
+		return "", errors.New("summoner does not exist.")
+	case result.Summoner.AccountID != "":
+		fmt.Println(result.Summoner.AccountID)
+		return result.Summoner.AccountID, nil
+
+	}
+	return "", errors.New("unreachable code in getUserId")
 }
