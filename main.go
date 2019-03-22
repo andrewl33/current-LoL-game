@@ -1,13 +1,26 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+type Summoner struct {
+	ID            string `json:"id"`
+	AccountID     string `json:"accountId"`
+	PuuID         string `json:"puuid"`
+	Name          string `json:"name"`
+	ProfileIconID string `json:"profileIconId"`
+	RevisionDate  string `json:"revisionDate"`
+	SummonerLevel string `json:"summonerLevel"`
+}
 
 // https://na1.api.riotgames.com
 // /lol/summoner/v4/summoners/by-name/{summonerName}
@@ -15,11 +28,11 @@ import (
 // ?api_key=<key>
 
 func main() {
-	fmt.Println("Hello world")
+	fmt.Println("starting currentLoLBot")
 	dg, err := discordgo.New("Bot " + DiscordBotKey)
 
 	if err != nil {
-		fmt.Println("Error on connecting, ", err)
+		fmt.Println("error on connecting,", err)
 		return
 	}
 
@@ -53,8 +66,28 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 	// If the message is "ping" reply with "Pong!"
-	if m.Content == "ping" {
-		s.ChannelMessageSend(m.ChannelID, "Pong!")
+	if strings.Contains(m.Content, "!currentLoL") {
+		arguments := strings.Fields(m.Content)
+		if len(arguments) != 2 {
+			s.ChannelMessageSend(m.ChannelID, "Usage: !currentLoL [summoner name]")
+			return
+		}
+
+		// get summoner ID
+		resp, err := http.Get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + arguments[1] + "?api_key=" + RiotAPIKey)
+
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Problem accessing Riot Games API.")
+			fmt.Println("error getting name,", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		summoner := Summoner{}
+
+		json.NewDecoder(resp.Body).Decode(&summoner)
+
+		fmt.Println(summoner.ID)
 	}
 
 	// If the message is "pong" reply with "Ping!"

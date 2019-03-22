@@ -13,3 +13,6 @@
 
 # Secret keys
 auth.go
+
+# program file
+current-LoL-game
