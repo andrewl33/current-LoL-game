@@ -24,17 +24,73 @@ type Summoner struct {
 	SummonerLevel string `json:"summonerLevel"`
 }
 
-// SummonerFail body from riot api
-type SummonerFail struct {
+// Fail body from riot api
+type Fail struct {
 	Status struct {
 		Message    string `json:"message"`
 		StatusCode int16  `json:"status_code"`
 	}
 }
 
+// CurrentGame in progress
+type CurrentGame struct {
+	GameID            int64  `json:"gameId"`
+	MapID             int    `json:"mapId"`
+	GameMode          string `json:"gameMode"`
+	GameType          string `json:"gameType"`
+	GameQueueConfigID int    `json:"gameQueueConfigId"`
+	Participants      []struct {
+		TeamID                   int           `json:"teamId"`
+		Spell1ID                 int           `json:"spell1Id"`
+		Spell2ID                 int           `json:"spell2Id"`
+		ChampionID               int           `json:"championId"`
+		ProfileIconID            int           `json:"profileIconId"`
+		SummonerName             string        `json:"summonerName"`
+		Bot                      bool          `json:"bot"`
+		SummonerID               string        `json:"summonerId"`
+		GameCustomizationObjects []interface{} `json:"gameCustomizationObjects"`
+		Perks                    struct {
+			PerkIds      []int `json:"perkIds"`
+			PerkStyle    int   `json:"perkStyle"`
+			PerkSubStyle int   `json:"perkSubStyle"`
+		} `json:"perks"`
+	} `json:"participants"`
+	Observers struct {
+		EncryptionKey string `json:"encryptionKey"`
+	} `json:"observers"`
+	PlatformID      string `json:"platformId"`
+	BannedChampions []struct {
+		ChampionID int `json:"championId"`
+		TeamID     int `json:"teamId"`
+		PickTurn   int `json:"pickTurn"`
+	} `json:"bannedChampions"`
+	GameStartTime int `json:"gameStartTime"`
+	GameLength    int `json:"gameLength"`
+}
+
+// PlayerInfo
+type PlayerInfo []struct {
+	LeagueID     string `json:"leagueId"`
+	LeagueName   string `json:"leagueName"`
+	QueueType    string `json:"queueType"`
+	Position     string `json:"position"`
+	Tier         string `json:"tier"`
+	Rank         string `json:"rank"`
+	LeaguePoints int    `json:"leaguePoints"`
+	Wins         int    `json:"wins"`
+	Losses       int    `json:"losses"`
+	Veteran      bool   `json:"veteran"`
+	Inactive     bool   `json:"inactive"`
+	FreshBlood   bool   `json:"freshBlood"`
+	HotStreak    bool   `json:"hotStreak"`
+	SummonerID   string `json:"summonerId"`
+	SummonerName string `json:"summonerName"`
+}
+
 // https://na1.api.riotgames.com
 // /lol/summoner/v4/summoners/by-name/{summonerName}
 // /lol/spectator/v4/active-games/by-summoner/{encryptedSummonerId}
+// /lol/league/v4/positions/by-summoner/{encryptedSummonerId}
 // ?api_key=<key>
 
 func main() {
@@ -83,20 +139,29 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// get data
-		encryptedAccountID, err := getUserID(arguments[1])
+		// lookup user data
+		encryptedSummonerID, err := getUserID(arguments[1])
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		fmt.Println(encryptedAccountID)
+		// lookup user game
+		currentGame, err := getCurrentGame(encryptedSummonerID)
+		if err != nil {
+			fmt.Println(err)
+			s.ChannelMessageSend(m.ChannelID, "Not in game.")
+		}
+
+		fmt.Println(currentGame)
+
+		// lookup teammates
+		// allPlayerInfo, err := getAllPlayerInfo(currentGame)
+
+		// send message to server
+		// Team, champions playing, w/l, and rank
 	}
 
-	// If the message is "pong" reply with "Ping!"
-	if m.Content == "pong" {
-		s.ChannelMessageSend(m.ChannelID, "Ping!")
-	}
 }
 
 func getUserID(accountName string) (string, error) {
@@ -110,19 +175,45 @@ func getUserID(accountName string) (string, error) {
 	// get summoner ID
 	result := struct {
 		Summoner
-		SummonerFail
+		Fail
 	}{}
 
 	json.NewDecoder(resp.Body).Decode(&result)
 
 	switch {
 	case result.Status.Message != "":
-		fmt.Println("summoner does not exist")
-		return "", errors.New("summoner does not exist.")
+		return "", errors.New("summoner does not exist")
 	case result.Summoner.AccountID != "":
-		fmt.Println(result.Summoner.AccountID)
-		return result.Summoner.AccountID, nil
+		return result.Summoner.ID, nil
 
 	}
 	return "", errors.New("unreachable code in getUserId")
 }
+
+func getCurrentGame(encryptedSummonerID string) (CurrentGame, error) {
+	result := struct {
+		CurrentGame
+		Fail
+	}{}
+
+	resp, err := http.Get("https://na1.api.riotgames.com/lol/spectator/v4/active-games/by-summoner/" + encryptedSummonerID + "?api_key=" + RiotAPIKey)
+
+	if err != nil {
+		return result.CurrentGame, errors.New("could not connect to active-games API")
+	}
+
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	switch {
+	case result.Status.Message != "":
+		return result.CurrentGame, errors.New("summoner not in game")
+	case result.CurrentGame.GameID > 0:
+		return result.CurrentGame, nil
+
+	}
+	return result.CurrentGame, errors.New("unreachable code in getCurrentGame")
+}
+
+// func getAllPlayerInfo(currentGame CurrentGame) (PlayerInfo, error) {
+
+// }
