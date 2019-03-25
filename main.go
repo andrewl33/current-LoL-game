@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Summoner info
@@ -68,7 +69,7 @@ type CurrentGame struct {
 	GameLength    int `json:"gameLength"`
 }
 
-// PlayerInfo
+// PlayerInfo player ranked info
 type PlayerInfo []struct {
 	LeagueID     string `json:"leagueId"`
 	LeagueName   string `json:"leagueName"`
@@ -112,14 +113,14 @@ func main() {
 		return
 	}
 
+	// Cleanly close down the Discord session.
+	defer dg.Close()
+
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
-
-	// Cleanly close down the Discord session.
-	dg.Close()
 }
 
 // This function will be called (due to AddHandler above) every time a new
@@ -151,13 +152,20 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if err != nil {
 			fmt.Println(err)
 			s.ChannelMessageSend(m.ChannelID, "Not in game.")
+			return
 		}
 
 		fmt.Println(currentGame)
 
 		// lookup teammates
-		// allPlayerInfo, err := getAllPlayerInfo(currentGame)
+		allPlayerInfo, err := getAllPlayerInfo(currentGame)
+		if err != nil {
+			fmt.Println(err)
+			s.ChannelMessageSend(m.ChannelID, "Could not find all player.")
+			return
+		}
 
+		spew.Dump(allPlayerInfo)
 		// send message to server
 		// Team, champions playing, w/l, and rank
 	}
@@ -181,7 +189,7 @@ func getUserID(accountName string) (string, error) {
 	json.NewDecoder(resp.Body).Decode(&result)
 
 	switch {
-	case result.Status.Message != "":
+	case result.Fail.Status.Message != "":
 		return "", errors.New("summoner does not exist")
 	case result.Summoner.AccountID != "":
 		return result.Summoner.ID, nil
@@ -201,11 +209,12 @@ func getCurrentGame(encryptedSummonerID string) (CurrentGame, error) {
 	if err != nil {
 		return result.CurrentGame, errors.New("could not connect to active-games API")
 	}
+	defer resp.Body.Close()
 
 	json.NewDecoder(resp.Body).Decode(&result)
 
 	switch {
-	case result.Status.Message != "":
+	case result.Fail.Status.Message != "":
 		return result.CurrentGame, errors.New("summoner not in game")
 	case result.CurrentGame.GameID > 0:
 		return result.CurrentGame, nil
@@ -214,6 +223,50 @@ func getCurrentGame(encryptedSummonerID string) (CurrentGame, error) {
 	return result.CurrentGame, errors.New("unreachable code in getCurrentGame")
 }
 
-// func getAllPlayerInfo(currentGame CurrentGame) (PlayerInfo, error) {
+func getAllPlayerInfo(currentGame CurrentGame) (PlayerInfo, error) {
+	var allPlayerInfo PlayerInfo
 
-// }
+	if len(currentGame.Participants) < 2 {
+		return allPlayerInfo, errors.New("less than 2 people in game")
+	}
+
+	for _, player := range currentGame.Participants {
+		// spew.Dump(player.SummonerID)
+		_, err := getPlayerInfo(player.SummonerID)
+
+		if err != nil {
+			return allPlayerInfo, err
+		}
+
+		//allPlayerInfo = append(allPlayerInfo, playerInfo)
+	}
+
+	return allPlayerInfo, nil
+}
+
+func getPlayerInfo(summonerID string) (PlayerInfo, error) {
+	result := struct {
+		PlayerInfo
+		Fail
+	}{}
+	fmt.Println(summonerID)
+	// resp, err := http.Get("https://na1.api.riotgames.com/lol/league/v4/positions/by-summoner/" + summonerID + "?api_key=" + RiotAPIKey)
+	resp, err := http.Get("https://na1.api.riotgames.com/lol/league/v4/positions/by-summoner/pv0JnIHSn-giBefi1swN3L_X14clq3EmIBJY4PPPB74nb58?api_key=RGAPI-4c16d2dc-f13d-43c8-ae73-39dbb291f871")
+	if err != nil {
+		return result.PlayerInfo, errors.New("could not connect to riot positions API")
+	}
+	defer resp.Body.Close()
+
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	spew.Dump(result)
+
+	switch {
+	case result.Fail.Status.Message != "":
+		return result.PlayerInfo, errors.New("cannot find summoner")
+	case result.PlayerInfo[0].SummonerID != "":
+		return result.PlayerInfo, nil
+	}
+
+	return result.PlayerInfo, errors.New("unreachable code getPlayerInfo")
+}
