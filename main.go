@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -95,7 +96,7 @@ type PlayerInfo []struct {
 // ?api_key=<key>
 
 func main() {
-	fmt.Println("starting currentLoLBot")
+	fmt.Println("Starting currentLoLBot.")
 	dg, err := discordgo.New("Bot " + DiscordBotKey)
 
 	if err != nil {
@@ -135,9 +136,19 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// If the message is "ping" reply with "Pong!"
 	if strings.Contains(m.Content, "!currentLoL") {
 		arguments := strings.Fields(m.Content)
-		if len(arguments) != 2 {
+		if len(arguments) < 2 {
 			s.ChannelMessageSend(m.ChannelID, "Usage: !currentLoL [summoner name]")
 			return
+		}
+
+		if len(arguments) > 2 {
+			var str strings.Builder
+
+			for i := 1; i < len(arguments); i++ {
+				str.WriteString(arguments[i])
+			}
+
+			arguments[1] = str.String()
 		}
 
 		// lookup user data
@@ -155,13 +166,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		fmt.Println(currentGame)
-
 		// lookup teammates
 		allPlayerInfo, err := getAllPlayerInfo(currentGame)
 		if err != nil {
 			fmt.Println(err)
-			s.ChannelMessageSend(m.ChannelID, "Could not find all player.")
+			s.ChannelMessageSend(m.ChannelID, "Could not get game info.")
 			return
 		}
 
@@ -231,14 +240,13 @@ func getAllPlayerInfo(currentGame CurrentGame) (PlayerInfo, error) {
 	}
 
 	for _, player := range currentGame.Participants {
-		// spew.Dump(player.SummonerID)
-		_, err := getPlayerInfo(player.SummonerID)
+		playerInfo, err := getPlayerInfo(player.SummonerID)
 
 		if err != nil {
 			return allPlayerInfo, err
 		}
 
-		//allPlayerInfo = append(allPlayerInfo, playerInfo)
+		allPlayerInfo = append(allPlayerInfo, playerInfo[0])
 	}
 
 	return allPlayerInfo, nil
@@ -249,17 +257,21 @@ func getPlayerInfo(summonerID string) (PlayerInfo, error) {
 		PlayerInfo
 		Fail
 	}{}
-	fmt.Println(summonerID)
-	// resp, err := http.Get("https://na1.api.riotgames.com/lol/league/v4/positions/by-summoner/" + summonerID + "?api_key=" + RiotAPIKey)
-	resp, err := http.Get("https://na1.api.riotgames.com/lol/league/v4/positions/by-summoner/pv0JnIHSn-giBefi1swN3L_X14clq3EmIBJY4PPPB74nb58?api_key=RGAPI-4c16d2dc-f13d-43c8-ae73-39dbb291f871")
+
+	resp, err := http.Get("https://na1.api.riotgames.com/lol/league/v4/positions/by-summoner/" + summonerID + "?api_key=" + RiotAPIKey)
+
 	if err != nil {
 		return result.PlayerInfo, errors.New("could not connect to riot positions API")
 	}
 	defer resp.Body.Close()
 
-	json.NewDecoder(resp.Body).Decode(&result)
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return result.PlayerInfo, errors.New("could not read body")
+	}
 
-	spew.Dump(result)
+	json.Unmarshal(bodyBytes, &result)
+	json.Unmarshal(bodyBytes, &result.PlayerInfo)
 
 	switch {
 	case result.Fail.Status.Message != "":
