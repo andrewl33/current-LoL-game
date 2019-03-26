@@ -96,6 +96,10 @@ type PlayerInfo []struct {
 // ?api_key=<key>
 
 func main() {
+	fmt.Println("Importing champion list")
+
+	championJSONtoArray()
+
 	fmt.Println("Starting currentLoLBot.")
 	dg, err := discordgo.New("Bot " + DiscordBotKey)
 
