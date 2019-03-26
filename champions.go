@@ -9,9 +9,9 @@ import (
 )
 
 // ChampionCount max number of champions in league of legends
-const ChampionCount = 400
+const ChampionCount int = 600
 
-// ChampInfo gives info for one champion
+// ChampionInfo gives info for one champion
 type ChampionInfo struct {
 	Version string `json:"version"`
 	ID      string `json:"id"`

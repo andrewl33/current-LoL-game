@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // Summoner info
@@ -89,20 +89,23 @@ type PlayerInfo []struct {
 	SummonerName string `json:"summonerName"`
 }
 
-// https://na1.api.riotgames.com
-// /lol/summoner/v4/summoners/by-name/{summonerName}
-// /lol/spectator/v4/active-games/by-summoner/{encryptedSummonerId}
-// /lol/league/v4/positions/by-summoner/{encryptedSummonerId}
-// ?api_key=<key>
+// ChampNames is a global key(index) name store
+var ChampNames [ChampionCount]string
 
 func main() {
 	fmt.Println("Importing champion list")
+	var err error
 
-	championJSONtoArray()
+	ChampNames, err = championJSONtoArray()
+
+	if err != nil {
+		fmt.Println("error on creating champ name array", err)
+		return
+	}
 
 	fmt.Println("Starting currentLoLBot.")
-	dg, err := discordgo.New("Bot " + DiscordBotKey)
 
+	dg, err := discordgo.New("Bot " + DiscordBotKey)
 	if err != nil {
 		fmt.Println("error on connecting,", err)
 		return
@@ -178,9 +181,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		spew.Dump(allPlayerInfo)
 		// send message to server
-		// Team, champions playing, w/l, and rank
+		// name champion position w/l
+		output := prettyPrint(currentGame, allPlayerInfo)
+
+		s.ChannelMessageSend(m.ChannelID, output)
 	}
 
 }
@@ -285,4 +290,100 @@ func getPlayerInfo(summonerID string) (PlayerInfo, error) {
 	}
 
 	return result.PlayerInfo, errors.New("unreachable code getPlayerInfo")
+}
+
+func prettyPrint(cg CurrentGame, ap PlayerInfo) string {
+	// prints team
+	// name champion position w/l
+	const CellsCount int = 5
+	var cellSizes [CellsCount]int
+
+	// hardcoded
+	cellSizes[0] = 20
+	cellSizes[1] = 11
+	cellSizes[2] = 11
+	cellSizes[3] = 8
+	cellSizes[4] = 4
+
+	// write everything
+	var table strings.Builder
+
+	table.WriteString("```\nBlue team\n")
+
+	// labels
+	table.WriteString(fmt.Sprintf("%-21v", "Summoner"))
+	table.WriteString(fmt.Sprintf("%12v", "Champion"))
+	table.WriteString(fmt.Sprintf("%12v", "Rank"))
+	table.WriteString(fmt.Sprintf("%9v", "W/L"))
+	table.WriteString(fmt.Sprintf("%5v", "%"))
+	table.WriteString("\n+")
+
+	for i := 0; i < CellsCount; i++ {
+		table.WriteString(strings.Repeat("-", cellSizes[i]))
+		table.WriteString("+")
+	}
+	table.WriteString("\n")
+
+	// fill blue team
+	for i := 0; i < len(ap)/2; i++ {
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%-20v", ap[i].SummonerName))
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%11v", ChampNames[cg.Participants[i].ChampionID]))
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%11v", ap[i].Tier+" "+ap[i].Rank))
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%8v", strconv.Itoa(ap[i].Wins)+"/"+strconv.Itoa(ap[i].Losses)))
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%3d%%", ap[i].Wins*100/(ap[i].Wins+ap[i].Losses)))
+		table.WriteString("|\n")
+	}
+
+	table.WriteString("+")
+	for i := 0; i < CellsCount; i++ {
+		table.WriteString(strings.Repeat("-", cellSizes[i]))
+		table.WriteString("+")
+	}
+
+	table.WriteString("\nPurple Team\n")
+
+	// labels
+	table.WriteString(fmt.Sprintf("%-21v", "Summoner"))
+	table.WriteString(fmt.Sprintf("%12v", "Champion"))
+	table.WriteString(fmt.Sprintf("%12v", "Rank"))
+	table.WriteString(fmt.Sprintf("%9v", "W/L"))
+	table.WriteString(fmt.Sprintf("%5v", "%"))
+	table.WriteString("\n+")
+
+	for i := 0; i < CellsCount; i++ {
+		table.WriteString(strings.Repeat("-", cellSizes[i]))
+		table.WriteString("+")
+	}
+
+	table.WriteString("\n")
+
+	// fill purple team
+	for i := len(ap) / 2; i < len(ap); i++ {
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%-20v", ap[i].SummonerName))
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%11v", ChampNames[cg.Participants[i].ChampionID]))
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%11v", ap[i].Tier+" "+ap[i].Rank))
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%8v", strconv.Itoa(ap[i].Wins)+"/"+strconv.Itoa(ap[i].Losses)))
+		table.WriteString("|")
+		table.WriteString(fmt.Sprintf("%3d%%", ap[i].Wins*100/(ap[i].Wins+ap[i].Losses)))
+		table.WriteString("|\n")
+	}
+
+	table.WriteString("+")
+	for i := 0; i < CellsCount; i++ {
+		table.WriteString(strings.Repeat("-", cellSizes[i]))
+		table.WriteString("+")
+	}
+
+	table.WriteString("\n```")
+
+	return table.String()
 }
