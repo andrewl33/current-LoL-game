@@ -125,7 +125,7 @@ func main() {
 	defer dg.Close()
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
+	fmt.Println("Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
@@ -267,10 +267,10 @@ func getPlayerInfo(summonerID string) (PlayerInfo, error) {
 		Fail
 	}{}
 
-	resp, err := http.Get("https://na1.api.riotgames.com/lol/league/v4/positions/by-summoner/" + summonerID + "?api_key=" + RiotAPIKey)
+	resp, err := http.Get("https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/" + summonerID + "?api_key=" + RiotAPIKey)
 
 	if err != nil {
-		return result.PlayerInfo, errors.New("could not connect to riot positions API")
+		return result.PlayerInfo, errors.New("could not connect to riot entries API")
 	}
 	defer resp.Body.Close()
 
