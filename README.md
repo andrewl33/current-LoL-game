@@ -27,9 +27,10 @@ Summoner                 Champion        Rank      W/L    %
 +--------------------+-----------+-----------+--------+----+
 ```
 
-Requirements:
+## Requirements:
 
 Needs global variables `RiotAPIKey` from [Riot Developer portal](https://developer.riotgames.com/) and `DiscordBotKey` from [Discord Developers](https://discordapp.com/developer).
 
-Flags:
+## Flags:
+
 `--updatechampions`: updates champion list, used when a new champion is released
