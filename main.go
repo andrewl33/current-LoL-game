@@ -300,8 +300,8 @@ func prettyPrint(cg CurrentGame, ap PlayerInfo) string {
 
 	// hardcoded
 	cellSizes[0] = 20
-	cellSizes[1] = 11
-	cellSizes[2] = 11
+	cellSizes[1] = 15
+	cellSizes[2] = 15
 	cellSizes[3] = 8
 	cellSizes[4] = 4
 
@@ -312,8 +312,8 @@ func prettyPrint(cg CurrentGame, ap PlayerInfo) string {
 
 	// labels
 	table.WriteString(fmt.Sprintf("%-21v", "Summoner"))
-	table.WriteString(fmt.Sprintf("%12v", "Champion"))
-	table.WriteString(fmt.Sprintf("%12v", "Rank"))
+	table.WriteString(fmt.Sprintf("%16v", "Champion"))
+	table.WriteString(fmt.Sprintf("%16v", "Rank"))
 	table.WriteString(fmt.Sprintf("%9v", "W/L"))
 	table.WriteString(fmt.Sprintf("%5v", "%"))
 	table.WriteString("\n+")
@@ -329,9 +329,9 @@ func prettyPrint(cg CurrentGame, ap PlayerInfo) string {
 		table.WriteString("|")
 		table.WriteString(fmt.Sprintf("%-20v", ap[i].SummonerName))
 		table.WriteString("|")
-		table.WriteString(fmt.Sprintf("%11v", ChampNames[cg.Participants[i].ChampionID]))
+		table.WriteString(fmt.Sprintf("%15v", ChampNames[cg.Participants[i].ChampionID]))
 		table.WriteString("|")
-		table.WriteString(fmt.Sprintf("%11v", ap[i].Tier+" "+ap[i].Rank))
+		table.WriteString(fmt.Sprintf("%15v", ap[i].Tier+" "+ap[i].Rank))
 		table.WriteString("|")
 		table.WriteString(fmt.Sprintf("%8v", strconv.Itoa(ap[i].Wins)+"/"+strconv.Itoa(ap[i].Losses)))
 		table.WriteString("|")
@@ -349,8 +349,8 @@ func prettyPrint(cg CurrentGame, ap PlayerInfo) string {
 
 	// labels
 	table.WriteString(fmt.Sprintf("%-21v", "Summoner"))
-	table.WriteString(fmt.Sprintf("%12v", "Champion"))
-	table.WriteString(fmt.Sprintf("%12v", "Rank"))
+	table.WriteString(fmt.Sprintf("%16v", "Champion"))
+	table.WriteString(fmt.Sprintf("%16v", "Rank"))
 	table.WriteString(fmt.Sprintf("%9v", "W/L"))
 	table.WriteString(fmt.Sprintf("%5v", "%"))
 	table.WriteString("\n+")
@@ -367,9 +367,9 @@ func prettyPrint(cg CurrentGame, ap PlayerInfo) string {
 		table.WriteString("|")
 		table.WriteString(fmt.Sprintf("%-20v", ap[i].SummonerName))
 		table.WriteString("|")
-		table.WriteString(fmt.Sprintf("%11v", ChampNames[cg.Participants[i].ChampionID]))
+		table.WriteString(fmt.Sprintf("%15v", ChampNames[cg.Participants[i].ChampionID]))
 		table.WriteString("|")
-		table.WriteString(fmt.Sprintf("%11v", ap[i].Tier+" "+ap[i].Rank))
+		table.WriteString(fmt.Sprintf("%15v", ap[i].Tier+" "+ap[i].Rank))
 		table.WriteString("|")
 		table.WriteString(fmt.Sprintf("%8v", strconv.Itoa(ap[i].Wins)+"/"+strconv.Itoa(ap[i].Losses)))
 		table.WriteString("|")
