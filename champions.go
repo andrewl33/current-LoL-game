@@ -2,10 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"strconv"
+	"strings"
+	"unicode"
 )
 
 // ChampionCount max number of champions in league of legends
@@ -73,6 +78,10 @@ func championJSONtoArray() ([ChampionCount]string, error) {
 	var champions [ChampionCount]string
 	var championsJSON AllChampionInfo
 
+	if err := fillChampionJSON(); err != nil {
+		return champions, err
+	}
+
 	jsonFile, err := os.Open("./champions.json")
 
 	if err != nil {
@@ -98,4 +107,73 @@ func championJSONtoArray() ([ChampionCount]string, error) {
 		champions[i] = name
 	}
 	return champions, nil
+}
+
+func fillChampionJSON() error {
+	version, err := getLatestPatch()
+	if err != nil {
+		return errors.New("could not update champions")
+	}
+
+	filepath := "./champions.json"
+	championsURL := fmt.Sprintf("http://ddragon.leagueoflegends.com/cdn/%s/data/en_US/champion.json", version)
+
+	err = downloadFile(filepath, championsURL)
+	if err != nil {
+		return errors.New("could not update champions")
+	}
+
+	return err
+}
+
+func downloadFile(filepath string, url string) error {
+	// Get the data
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Create the file
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
+func getLatestPatch() (string, error) {
+	versionURL := "https://ddragon.leagueoflegends.com/api/versions.json"
+
+	resp, err := http.Get(versionURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	buf := make([]byte, 33)
+	if _, err := io.ReadAtLeast(resp.Body, buf, 10); err != nil {
+		return "", err
+	}
+
+	for _, element := range strings.Split(string(buf), "\"") {
+		if validVersionString(element) {
+			return element, err
+		}
+	}
+
+	return "", errors.New("could not get latest patch")
+}
+
+func validVersionString(s string) bool {
+	for _, c := range s {
+		if c != '.' && !unicode.IsDigit(c) {
+			return false
+		}
+	}
+	return true
 }

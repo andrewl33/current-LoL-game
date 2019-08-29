@@ -96,8 +96,8 @@ func main() {
 	fmt.Println("Importing champion list")
 	var err error
 
+	// fill champion array
 	ChampNames, err = championJSONtoArray()
-
 	if err != nil {
 		fmt.Println("error on creating champ name array", err)
 		return
@@ -134,13 +134,14 @@ func main() {
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the autenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-
+	var err error
 	// Ignore all messages created by the bot itself
 	// This isn't required in this specific example but it's a good practice.
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	// If the message is "ping" reply with "Pong!"
+
+	// Listen for currentLoL
 	if strings.Contains(m.Content, "!currentLoL") {
 		arguments := strings.Fields(m.Content)
 		if len(arguments) < 2 {
@@ -156,6 +157,16 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			}
 
 			arguments[1] = str.String()
+		}
+
+		// handle special args, just champion list update for now
+		if arguments[1] == "--updatechampions" {
+			ChampNames, err = championJSONtoArray()
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, "Could not update champion list.")
+			}
+			s.ChannelMessageSend(m.ChannelID, "Updated champion list.")
+			return
 		}
 
 		// lookup user data

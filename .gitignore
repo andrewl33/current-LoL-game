@@ -14,5 +14,8 @@
 # Secret keys
 auth.go
 
+# champion list
+champions.json
+
 # program file
 current-LoL-game
